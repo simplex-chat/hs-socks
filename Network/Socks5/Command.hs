@@ -11,6 +11,7 @@
 --
 module Network.Socks5.Command
     ( establish
+    , authenticate
     , Connect(..)
     , Command(..)
     , connectIPV4
@@ -40,6 +41,11 @@ establish :: SocksVersion -> Socket -> [SocksMethod] -> IO SocksMethod
 establish SocksVer5 socket methods = do
     sendAll socket (encode $ SocksHello methods)
     getSocksHelloResponseMethod <$> runGetDone get (recv socket 4096)
+
+authenticate :: SocksVersion -> Socket -> SocksCredentials -> IO SocksAuthStatus
+authenticate SocksVer5 socket credentials = do
+    sendAll socket (encode $ SocksUsernamePassword credentials)
+    getUsernamePasswordResponse <$> runGetDone get (recv socket 4096)
 
 newtype Connect = Connect SocksAddress deriving (Show,Eq,Ord)
 
