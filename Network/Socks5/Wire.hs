@@ -148,10 +148,8 @@ instance Serialize SocksAuthStatus where
     put SocksAuthSuccess = putWord8 0
     put (SocksAuthFailure s) = putWord8 s
     get = do
-        v <- getWord8
-        case v of
-            0 -> return SocksAuthSuccess
-            s -> return $ SocksAuthFailure s
+        s <- getWord8
+        return $ if s == 0 then SocksAuthSuccess else SocksAuthFailure s
 
 instance Serialize SocksRequest where
     put req = do
