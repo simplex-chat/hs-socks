@@ -27,6 +27,7 @@ module Network.Socks5
     , SocksHostAddress(..)
     , SocksReply(..)
     , SocksError(..)
+    , SocksCredentials(..)
     -- * Configuration
     , module Network.Socks5.Conf
     -- * Methods
