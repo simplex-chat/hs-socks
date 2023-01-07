@@ -93,10 +93,6 @@ socksConnect :: SocksConf    -- ^ SOCKS configuration for the server.
 socksConnect serverConf destAddr =
     socksConnect_ serverConf $ \sock ->
         socksConnectWithSocket sock serverConf destAddr
-    -- bracketOnError (socket AF_INET Stream defaultProtocol) close $ \sock -> do
-    --     connect sock (socksServer serverConf)
-    --     ret <- socksConnectWithSocket sock serverConf destAddr
-    --     return (sock, ret)
 
 -- | connect a new socket to a socks server and connect the stream on the
 -- server side to the 'SocksAddress' specified.
@@ -107,10 +103,6 @@ socksConnectAuth :: SocksConf        -- ^ SOCKS configuration for the server.
 socksConnectAuth serverConf destAddr credentials =
     socksConnect_ serverConf $ \sock ->
         socksConnectWithSocketAuth sock serverConf destAddr credentials
-    -- bracketOnError (socket AF_INET Stream defaultProtocol) close $ \sock -> do
-    --     connect sock (socksServer serverConf)
-    --     ret <- socksConnectWithSocketAuth sock serverConf destAddr credentials
-    --     return (sock, ret)
 
 socksConnect_ :: SocksConf -> (Socket -> IO (SocksHostAddress, PortNumber)) -> IO (Socket, (SocksHostAddress, PortNumber))
 socksConnect_ serverConf connectAddr =
