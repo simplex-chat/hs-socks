@@ -27,11 +27,14 @@ module Network.Socks5
     , SocksHostAddress(..)
     , SocksReply(..)
     , SocksError(..)
+    , SocksCredentials(..)
     -- * Configuration
     , module Network.Socks5.Conf
     -- * Methods
     , socksConnectWithSocket
+    , socksConnectWithSocketAuth
     , socksConnect
+    , socksConnectAuth
     -- * Variants
     , socksConnectName
     ) where
@@ -58,9 +61,30 @@ socksConnectWithSocket :: Socket       -- ^ Socket to use.
                        -> SocksAddress -- ^ SOCKS Address to connect to.
                        -> IO (SocksHostAddress, PortNumber)
 socksConnectWithSocket sock serverConf destAddr = do
-    r <- Cmd.establish (socksVersion serverConf) sock [SocksMethodNone]
-    when (r == SocksMethodNotAcceptable) $ error "cannot connect with no socks method of authentication"
+    establishConnection sock serverConf SocksMethodNone
     Cmd.rpc_ sock (Connect destAddr)
+
+-- | connect a user specified new socket on the socks server to a destination with username/password authentication
+--
+-- The socket in parameter needs to be already connected to the socks server
+--
+-- |socket|-----sockServer----->|server|----destAddr----->|destination|
+--
+socksConnectWithSocketAuth :: Socket           -- ^ Socket to use.
+                           -> SocksConf        -- ^ SOCKS configuration for the server.
+                           -> SocksAddress     -- ^ SOCKS Address to connect to.
+                           -> SocksCredentials -- ^ SOCKS username/password to authenticate with.
+                           -> IO (SocksHostAddress, PortNumber)
+socksConnectWithSocketAuth sock serverConf destAddr credentials = do
+    establishConnection sock serverConf SocksMethodUsernamePassword
+    r' <- Cmd.authenticate  (socksVersion serverConf) sock credentials
+    when (r' /= SocksAuthSuccess) $ error "authentication failed"
+    Cmd.rpc_ sock (Connect destAddr)
+
+establishConnection :: Socket -> SocksConf -> SocksMethod -> IO ()
+establishConnection sock serverConf method = do
+    r <- Cmd.establish (socksVersion serverConf) sock [method]
+    when (r == SocksMethodNotAcceptable) $ error "cannot connect with no socks method of authentication"
 
 -- | connect a new socket to a socks server and connect the stream on the
 -- server side to the 'SocksAddress' specified.
@@ -68,9 +92,24 @@ socksConnect :: SocksConf    -- ^ SOCKS configuration for the server.
              -> SocksAddress -- ^ SOCKS Address to connect to.
              -> IO (Socket, (SocksHostAddress, PortNumber))
 socksConnect serverConf destAddr =
+    socksConnect_ serverConf $ \sock ->
+        socksConnectWithSocket sock serverConf destAddr
+
+-- | connect a new socket to a socks server and connect the stream on the
+-- server side to the 'SocksAddress' specified.
+socksConnectAuth :: SocksConf        -- ^ SOCKS configuration for the server.
+                 -> SocksAddress     -- ^ SOCKS Address to connect to.
+                 -> SocksCredentials -- ^ SOCKS username/password to authenticate with.
+                 -> IO (Socket, (SocksHostAddress, PortNumber))
+socksConnectAuth serverConf destAddr credentials =
+    socksConnect_ serverConf $ \sock ->
+        socksConnectWithSocketAuth sock serverConf destAddr credentials
+
+socksConnect_ :: SocksConf -> (Socket -> IO (SocksHostAddress, PortNumber)) -> IO (Socket, (SocksHostAddress, PortNumber))
+socksConnect_ serverConf connectAddr =
     bracketOnError (socket AF_INET Stream defaultProtocol) close $ \sock -> do
         connect sock (socksServer serverConf)
-        ret <- socksConnectWithSocket sock serverConf destAddr
+        ret <- connectAddr sock
         return (sock, ret)
 
 -- | connect a new socket to the socks server, and connect the stream to a FQDN

@@ -11,6 +11,9 @@ module Network.Socks5.Wire
     , SocksHelloResponse(..)
     , SocksRequest(..)
     , SocksResponse(..)
+    , SocksUsernamePassword(..)
+    , SocksUsernamePasswordResponse(..)
+    , SocksAuthStatus(..)
     ) where
 
 import Basement.Compat.Base
@@ -30,6 +33,15 @@ data SocksHello = SocksHello { getSocksHelloMethods :: [SocksMethod] }
 -- | Initial message send by server in return from Hello, with the
 -- server chosen method of authentication
 data SocksHelloResponse = SocksHelloResponse { getSocksHelloResponseMethod :: SocksMethod }
+    deriving (Show,Eq)
+
+newtype SocksUsernamePassword = SocksUsernamePassword SocksCredentials
+    deriving (Show,Eq)
+
+newtype SocksUsernamePasswordResponse = SocksUsernamePasswordResponse { getUsernamePasswordResponse :: SocksAuthStatus }
+    deriving (Show,Eq)
+
+data SocksAuthStatus = SocksAuthSuccess | SocksAuthFailure Word8
     deriving (Show,Eq)
 
 -- | Define a SOCKS requests
@@ -103,6 +115,41 @@ instance Serialize SocksHelloResponse where
         case v of
             5 -> SocksHelloResponse <$> getEnum8
             _ -> error "unsupported sock hello response version"
+
+instance Serialize SocksUsernamePassword where
+    put (SocksUsernamePassword (SocksCredentials u p)) = do
+        putWord8 1 -- version
+        putLength8 $ B.length u
+        putByteString u
+        putLength8 $ B.length p
+        putByteString p
+    get = do
+        v <- getWord8
+        case v of
+            1 -> do
+                ulen <- getLength8
+                u <- getByteString ulen
+                plen <- getLength8
+                p <- getByteString plen
+                return $ SocksUsernamePassword $ SocksCredentials u p
+            _ -> error "unsupported sock username/password version"
+
+instance Serialize SocksUsernamePasswordResponse where
+    put (SocksUsernamePasswordResponse r) = do
+        putWord8 1 -- version
+        put r
+    get = do
+        v <- getWord8
+        case v of
+            1 -> SocksUsernamePasswordResponse <$> get
+            _ -> error "unsupported sock username/password response version"
+
+instance Serialize SocksAuthStatus where
+    put SocksAuthSuccess = putWord8 0
+    put (SocksAuthFailure s) = putWord8 s
+    get = do
+        s <- getWord8
+        return $ if s == 0 then SocksAuthSuccess else SocksAuthFailure s
 
 instance Serialize SocksRequest where
     put req = do

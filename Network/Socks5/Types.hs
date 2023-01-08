@@ -14,6 +14,7 @@ module Network.Socks5.Types
     , SocksReply(..)
     , SocksVersionNotSupported(..)
     , SocksError(..)
+    , SocksCredentials(..)
     ) where
 
 import qualified Basement.String as UTF8
@@ -122,6 +123,9 @@ data SocksVersionNotSupported = SocksVersionNotSupported
 
 instance Exception SocksError
 instance Exception SocksVersionNotSupported
+
+data SocksCredentials = SocksCredentials { username :: !ByteString, password :: !ByteString }
+    deriving (Show,Eq)
 
 instance Enum SocksCommand where
     toEnum 1 = SocksCommandConnect
